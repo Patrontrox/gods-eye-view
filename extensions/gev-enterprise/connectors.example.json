@@ -1,0 +1,8 @@
+[
+  {
+    "id": "approved-public-json",
+    "title": "Approved public JSON source",
+    "url": "https://example.org/data.json",
+    "minRole": "analyst"
+  }
+]

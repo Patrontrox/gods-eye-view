@@ -2198,7 +2198,19 @@
       "src/tools/functions.js",
       "src/voice/actionSchemas.js",
       "src/view/index.js",
-      "src/app/embed.js"
+      "src/app/embed.js",
+      "src/ui/intelligenceConsole.js",
+      "src/ui/intelligenceEnterprise.js",
+      "src/ui/intelligenceConsole.css",
+      "src/ui/intelligenceRuntime.js",
+      "src/ui/intelligenceFiles.js",
+      "extensions/gev-intel-core/correlation.js",
+      "extensions/gev-intel-core/geofence.js",
+      "extensions/gev-intel-core/geojson.js",
+      "extensions/gev-intel-core/otTopology.js",
+      "extensions/gev-intel-core/workspace.js",
+      "extensions/gev-intel-core/report.js",
+      "extensions/gev-intel-core/refinementScheduler.js"
     ],
     "external": [
       "hls.js",
