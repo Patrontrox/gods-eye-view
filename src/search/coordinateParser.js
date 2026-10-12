@@ -49,8 +49,11 @@ function splitComponents(query) {
   const parts = /[,;]/.test(text)
     ? text.split(/[,;]/)
     : text.split(/\s+(?=[+-]?[.\d]|[NSEW]\s*[+-]?[.\d])/i);
-  const trimmed = parts.map((part) => part.trim()).filter(Boolean);
-  return trimmed.length === 2 ? trimmed : null;
+  // Empty fields are a malformed query, not padding: `40,,74` or `40,74,`
+  // must decline instead of collapsing into a valid-looking pair.
+  const trimmed = parts.map((part) => part.trim());
+  if (trimmed.length !== 2 || trimmed.some((part) => !part)) return null;
+  return trimmed;
 }
 
 /** Present a parsed pair the way a coordinate is normally written. */

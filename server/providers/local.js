@@ -26,6 +26,7 @@ import { weatherProxy } from './weather.js';
 import { firePerimetersProxy } from './firePerimeters.js';
 import { cycloneProxy } from './cyclones.js';
 import { windProxy } from './wind.js';
+import { upstreamGovernorPlugin } from './governor.js';
 
 /**
  * Construct the local provider plugins in their established order.
@@ -33,6 +34,8 @@ import { windProxy } from './wind.js';
  */
 function localProviderPlugins({ realtime } = {}) {
   return [
+    // First: every provider below fetches through the governed fetch.
+    upstreamGovernorPlugin(),
     openSkyProxy(),
     celestrakProxy(),
     tomtomProxy(),

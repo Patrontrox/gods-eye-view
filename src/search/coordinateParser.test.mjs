@@ -132,3 +132,17 @@ test('the poles and the dateline are inside the accepted range', () => {
   assert.deepEqual(parseCoordinateQuery('90, 180')?.lat, 90);
   assert.deepEqual(parseCoordinateQuery('-90, -180')?.lon, -180);
 });
+
+test('empty separator fields decline instead of collapsing into a pair', () => {
+  for (const query of [
+    '40,,74',
+    '40;;74',
+    ',40,74',
+    '40,74,',
+    '40, ,74',
+    '40,;74',
+  ]) {
+    assert.equal(parseCoordinateQuery(query), null, query);
+  }
+  assert.deepEqual(parseCoordinateQuery('40, 74')?.lat, 40);
+});

@@ -15,13 +15,13 @@ Include repro steps and impact. We'll acknowledge, investigate, and credit you (
 
 The golden rule: **secret-bearing API keys stay on the server side.** The dev/preview server (middleware under `server/providers/`) brokers every request that needs a private credential, so the browser never receives one.
 
-| Key | Where it lives | How the browser uses it |
-|-----|----------------|--------------------------|
-| `OPENAI_API_KEY` | Server only | Browser fetches a short-lived **ephemeral** Realtime session token from `/api/realtime/token`; the real key never ships |
+| Key                                                    | Where it lives                                                                                                        | How the browser uses it                                                                                                                                                        |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `OPENAI_API_KEY`                                       | Server only                                                                                                           | Browser fetches a short-lived **ephemeral** Realtime session token from `/api/realtime/token`; the real key never ships                                                        |
 | ChatGPT sign-in through Codex (optional, experimental) | Codex's own `auth.json` (`CODEX_HOME`, default `~/.codex`); GEV reads it server-side and never writes or refreshes it | Only after **USE CHATGPT OAUTH** is selected in Provider Settings: the server mints the same ephemeral Realtime token with the ChatGPT access token, for loopback clients only |
-| `AISSTREAM_API_KEY` | Server only | Server holds the AISStream websocket; browser polls the same-origin `/api/vessels` cache |
-| OpenSky OAuth (`OPENSKY_CLIENT_ID/SECRET`) | Server only | Server mints + refreshes the token behind `/api/flights` |
-| `GOOGLE_MAPS_SERVER_API_KEY` (optional, #33) | Server only | Server calls Places (`/api/google/nearby-places`, `/api/google/text-search`) and the Street View fallback with this key; falls back to `GOOGLE_MAPS_API_KEY` when unset |
+| `AISSTREAM_API_KEY`                                    | Server only                                                                                                           | Server holds the AISStream websocket; browser polls the same-origin `/api/vessels` cache                                                                                       |
+| OpenSky OAuth (`OPENSKY_CLIENT_ID/SECRET`)             | Server only                                                                                                           | Server mints + refreshes the token behind `/api/flights`                                                                                                                       |
+| `GOOGLE_MAPS_SERVER_API_KEY` (optional, #33)           | Server only                                                                                                           | Server calls Places (`/api/google/nearby-places`, `/api/google/text-search`) and the Street View fallback with this key; falls back to `GOOGLE_MAPS_API_KEY` when unset        |
 
 ### Three deliberately client-side keys — restrict them
 
@@ -113,3 +113,35 @@ God's Eye View's tools are also served to MCP clients: over stdio (`npm run mcp`
 ## Responsible use
 
 This is an interface for signals that are **already public**. Use it accordingly: respect privacy, follow data providers' terms, and don't represent public-data inference as authoritative intelligence.
+
+## Running behind a reverse proxy (TLS / multi-user)
+
+By default every request carrying forwarding headers (`X-Forwarded-*`,
+`Forwarded`, `Via`, …) is refused: the server is local-first. To publish it
+behind your own TLS reverse proxy:
+
+1. Put an authenticating proxy in front (for example oauth2-proxy or your
+   IdP's OIDC gateway). The app itself has no user accounts; never expose
+   Vite directly to the Internet.
+2. Set `GEV_TRUSTED_PROXIES` to the exact IP address(es) of that proxy as seen
+   by this server (comma separated). Only those socket peers may forward;
+   `X-Forwarded-Host` / `X-Forwarded-Proto` are then used for the same-origin
+   check, which is still enforced.
+3. Add the public host name to `GEV_ALLOWED_HOSTS`.
+
+The credential panel and the local MCP endpoint keep refusing proxied requests
+regardless of this setting.
+
+## Upstream governor
+
+All provider `fetch` calls go through a shared governor
+(`server/providers/common/upstream-governor.js`): concurrent identical GETs are
+de-duplicated, each upstream host has an outbound budget, and a circuit
+breaker short-circuits a failing host for 30 s. Synthetic answers carry an
+`x-gev-governor` header. Telemetry: `GET /api/governor/status`.
+
+| Variable                   | Default | Meaning                                                              |
+| -------------------------- | ------- | -------------------------------------------------------------------- |
+| `GEV_UPSTREAM_GOVERNOR`    | on      | `0` disables the governor                                            |
+| `GEV_UPSTREAM_PER_MIN`     | `600`   | outbound requests/minute per host (`0` = unlimited)                  |
+| `GEV_UPSTREAM_HOST_LIMITS` | —       | per-host overrides, e.g. `opensky-network.org=60,api.tomtom.com=120` |

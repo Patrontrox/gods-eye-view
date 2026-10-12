@@ -1,5 +1,6 @@
 import * as Cesium from 'cesium';
 import { applyModelAtmosphereWorkaround } from './atmosphereCompat.js';
+import { installRenderRecovery } from './renderRecovery.js';
 
 const PINCH_ZOOM_MULTIPLIER = 8;
 const MAX_PINCH_PIXEL_DELTA = 120;
@@ -134,6 +135,9 @@ export function createApplicationViewer({ container, creditContainer }) {
     viewer.scene.skyAtmosphere.atmosphereLightIntensity = 18;
     viewer.scene.skyAtmosphere.saturationShift = -0.12;
     viewer.scene.skyAtmosphere.brightnessShift = -0.08;
+    // A canvas that collapses to 0×0 (minimise, fullscreen swap) must not
+    // freeze the globe for good. See app/renderRecovery.js.
+    installRenderRecovery(viewer);
     return viewer;
   } catch (error) {
     viewer.destroy();

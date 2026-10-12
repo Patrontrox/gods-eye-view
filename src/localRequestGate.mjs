@@ -96,10 +96,14 @@ export function admitSameSiteRequest({
   origin,
   secFetchSite,
   proxyHeaders = {},
+  trustedProxy = false,
 } = {}) {
   // (1) A request carrying reverse-proxy / CDN forwarding headers did not
-  // originate on this machine, whatever its socket says.
-  if (hasProxySignals(proxyHeaders)) {
+  // originate on this machine, whatever its socket says — unless the socket
+  // peer is a reverse proxy the operator explicitly listed as trusted
+  // (GEV_TRUSTED_PROXIES), in which case the caller has already resolved
+  // the request's public Host and protocol from the forwarding headers.
+  if (!trustedProxy && hasProxySignals(proxyHeaders)) {
     return {
       ok: false,
       status: 403,
