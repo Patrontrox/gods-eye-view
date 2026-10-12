@@ -49,7 +49,7 @@ function splitComponents(query) {
   const parts = /[,;]/.test(text)
     ? text.split(/[,;]/)
     : text.split(/\s+(?=[+-]?[.\d]|[NSEW]\s*[+-]?[.\d])/i);
-  const trimmed = parts.map((part) => part.trim()).filter(Boolean);
+  const trimmed = parts.map((part) => part.trim());
   return trimmed.length === 2 ? trimmed : null;
 }
 

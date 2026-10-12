@@ -102,6 +102,33 @@ export function installTrackpadPinchZoom(
   };
 }
 
+/**
+ * Suspend rendering while a resized/hidden canvas has no drawable dimensions.
+ * Cesium's framebuffer allocations require strictly positive texture dimensions.
+ * Returns a disposer to keep the wrapper's lifetime explicit.
+ */
+export function installNonZeroCanvasRenderGuard(viewer) {
+  const scene = viewer?.scene;
+  const canvas = viewer?.canvas;
+  if (!scene || !canvas || typeof scene.render !== 'function')
+    throw new TypeError('A complete Cesium scene and canvas are required');
+  const originalRender = scene.render;
+  function guardedRender(...args) {
+    if (
+      canvas.clientWidth <= 0 ||
+      canvas.clientHeight <= 0 ||
+      canvas.width <= 0 ||
+      canvas.height <= 0
+    )
+      return;
+    return originalRender.apply(this, args);
+  }
+  scene.render = guardedRender;
+  return () => {
+    if (scene.render === guardedRender) scene.render = originalRender;
+  };
+}
+
 /** Create the standard globe viewer in caller-owned, visible containers. */
 export function createApplicationViewer({ container, creditContainer }) {
   if (!container || !creditContainer)
@@ -123,6 +150,7 @@ export function createApplicationViewer({ container, creditContainer }) {
     msaaSamples: 4,
     contextOptions: { webgl: { preserveDrawingBuffer: true } },
   });
+  const releaseRenderGuard = installNonZeroCanvasRenderGuard(viewer);
   try {
     viewer.targetFrameRate = 60;
     // Before any tile builds a draw command: Cesium's per-vertex model
@@ -136,6 +164,7 @@ export function createApplicationViewer({ container, creditContainer }) {
     viewer.scene.skyAtmosphere.brightnessShift = -0.08;
     return viewer;
   } catch (error) {
+    releaseRenderGuard();
     viewer.destroy();
     throw error;
   }

@@ -53,6 +53,7 @@ export async function playSceneQueue(
   const cancelled = () => Boolean(token.cancelled || token.signal?.aborted);
   let activeScene = null;
   let completedShots = 0;
+  let primaryFailure = null;
   try {
     if (!queue.length || cancelled()) {
       return {
@@ -68,8 +69,9 @@ export async function playSceneQueue(
     for (let index = 0; index < queue.length && !cancelled(); index++) {
       const { scene, shot } = queue[index];
       if (activeScene && activeScene.id !== scene.id) {
-        await adapter.releaseScene(activeScene);
-        activeScene = null;
+        const sceneToRelease = activeScene;
+        activeScene = null; // Releasing a scene is attempted once, even on failure.
+        await adapter.releaseScene(sceneToRelease);
         if (cancelled()) break;
       }
       activeScene = scene;
@@ -82,8 +84,19 @@ export async function playSceneQueue(
     }
     if (!cancelled()) await adapter.complete?.();
     return { status: cancelled() ? 'cancelled' : 'completed', completedShots };
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
   } finally {
-    if (releaseOnFinish && activeScene) await adapter.releaseScene(activeScene);
+    if (releaseOnFinish && activeScene) {
+      try {
+        await adapter.releaseScene(activeScene);
+      } catch (cleanupError) {
+        if (!primaryFailure) throw cleanupError;
+        // Keep the original error as the rejection; surface cleanup too.
+        console.warn('[Director] Scene cleanup failed:', cleanupError);
+      }
+    }
   }
 }
 

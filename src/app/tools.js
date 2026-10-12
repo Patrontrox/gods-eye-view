@@ -1,6 +1,7 @@
 import { SceneDirector } from '../scenes/director.js';
 import { initAnnotations } from '../annotations/index.js';
 import { initDrawTool } from '../annotations/drawTool.js';
+import { createIntelligenceConsole } from '../ui/intelligenceConsole.js';
 import { initImageryBoxTool } from '../ui/imageryBoxTool.js';
 import { createRecentImageryPanel } from '../ui/recentImagery.js';
 import { initGevVoiceCommands } from '../voice/gevRealtime.js';
@@ -188,5 +189,18 @@ export function createApplicationTools({
       signal,
     }),
   );
+  // The analyst workspace is local-first and opt-in. A failure of this optional
+  // panel must not prevent the main globe and its core layers from booting.
+  try {
+    const intelligenceDesk = createIntelligenceConsole({
+      viewer,
+      dataManager,
+      signal,
+    });
+    defer(() => intelligenceDesk.destroy());
+    debug.intelligenceDesk = intelligenceDesk;
+  } catch (error) {
+    console.warn('[Analyst Desk] Unavailable:', error);
+  }
   return { sceneDirector, annotations, voiceCommands };
 }

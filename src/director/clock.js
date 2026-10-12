@@ -124,7 +124,14 @@ class PlaybackClock {
   subscribe(listener) {
     if (this._destroyed || typeof listener !== 'function') return () => {};
     this._sceneClockListeners.add(listener);
-    if (this._sceneClockSnapshot) listener({ ...this._sceneClockSnapshot });
+    if (this._sceneClockSnapshot) {
+      try {
+        listener({ ...this._sceneClockSnapshot });
+      } catch (error) {
+        // The caller must still receive the unsubscribe closure.
+        console.warn('[Scenes] Scene clock listener failed:', error);
+      }
+    }
     return () => this._sceneClockListeners.delete(listener);
   }
 
