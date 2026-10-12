@@ -1,5 +1,40 @@
 import { admitSameSiteRequest } from '../../../src/localRequestGate.mjs';
 
+/** First element of a comma-separated forwarding header, trimmed. */
+function firstForwardedValue(value) {
+  return String(value ?? '')
+    .split(',')[0]
+    .trim();
+}
+
+/** Strip the IPv4-mapped IPv6 prefix so `::ffff:10.0.0.2` matches `10.0.0.2`. */
+function normalizePeer(address) {
+  return String(address || '')
+    .replace(/^::ffff:/i, '')
+    .trim();
+}
+
+/**
+ * Socket peers allowed to forward requests (GEV_TRUSTED_PROXIES, comma list of
+ * exact IP addresses). Empty by default: the local-first posture refuses every
+ * proxied request unless the operator names their own reverse proxy.
+ */
+export function trustedProxyPeers(env = process.env) {
+  return new Set(
+    String(env.GEV_TRUSTED_PROXIES || '')
+      .split(',')
+      .map(normalizePeer)
+      .filter(Boolean),
+  );
+}
+
+/** Whether this request's socket peer is an operator-trusted reverse proxy. */
+export function isTrustedProxyPeer(req, env = process.env) {
+  const peers = trustedProxyPeers(env);
+  if (!peers.size) return false;
+  return peers.has(normalizePeer(req?.socket?.remoteAddress));
+}
+
 /**
  * Cross-site request gate for cost-bearing and log endpoints. Feeds the
  * request to the pure, unit-tested `admitSameSiteRequest` and answers 403
@@ -13,9 +48,23 @@ import { admitSameSiteRequest } from '../../../src/localRequestGate.mjs';
  * @returns {boolean} True when a 403 was sent.
  */
 export function admitSameSite(req, res) {
+  const trusted = isTrustedProxyPeer(req);
+  const headers = req.headers || {};
+  const forwardedHost = trusted
+    ? firstForwardedValue(headers['x-forwarded-host'])
+    : '';
+  const forwardedProto = trusted
+    ? firstForwardedValue(headers['x-forwarded-proto']).toLowerCase()
+    : '';
   const verdict = admitSameSiteRequest({
-    hostHeader: req.headers?.host,
-    protocol: req.socket?.encrypted ? 'https:' : 'http:',
+    hostHeader: forwardedHost || req.headers?.host,
+    protocol:
+      forwardedProto === 'https' || forwardedProto === 'http'
+        ? `${forwardedProto}:`
+        : req.socket?.encrypted
+          ? 'https:'
+          : 'http:',
+    trustedProxy: trusted,
     origin: req.headers?.origin,
     secFetchSite: req.headers?.['sec-fetch-site'],
     proxyHeaders: req.headers || {},
